@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import inspect
 import time
 import uuid
-from . import __version__, files, srs, val3
+from . import __version__, files, srs, val3, simulator
 
 
 @dataclass(frozen=True)
@@ -17,7 +17,8 @@ class Operation:
 
     def descriptor(self):
         signature = inspect.signature(self.function)
-        return {"name": self.name, "description": self.description, "effect": self.effect,
+        return {"name": self.name, "revision": 1, "description": self.description, "effect": self.effect,
+                "output_schema": {"type": "object"},
                 "input_schema": {"type": "object", "properties": self.inputs,
                     "required": [k for k, v in signature.parameters.items() if v.default is inspect.Parameter.empty],
                     "additionalProperties": False}}
@@ -35,6 +36,11 @@ OPERATIONS = [
               {"path": STRING, "text": STRING, "limit": {"type": "integer", "minimum": 1, "maximum": 1000}}),
     Operation("xml.inspect", "Inspect namespaced SRS/VAL3 XML metadata", files.inspect_xml, {"path": STRING}),
     Operation("val3.analyze", "Inspect VAL3 programs, data and call candidates", val3.analyze, {"path": STRING}),
+    Operation("simulator.read", "Read one allowlisted local CS9 emulator resource", simulator.read,
+              {"resource": {"type": "string", "enum": list(simulator.RESOURCES)},
+               "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+               "insecure_tls": {"type": "boolean"},
+               "timeout": {"type": "number", "minimum": 0.1, "maximum": 30}}, "read-local-endpoint"),
 ]
 
 
@@ -59,6 +65,8 @@ def execute(name, arguments):
                 raise ValueError(f"Invalid type for {key}: expected {spec['type']}")
             if "minimum" in spec and not spec["minimum"] <= value <= spec["maximum"]:
                 raise ValueError(f"{key} out of range")
+            if "enum" in spec and value not in spec["enum"]:
+                raise ValueError(f"Invalid choice for {key}")
         result.update(ok=True, data=operation.function(**arguments), error=None)
     except Exception as exc:
         result.update(ok=False, data=None, error={"code": type(exc).__name__, "message": str(exc)})

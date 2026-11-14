@@ -28,7 +28,9 @@ def root_path(path):
 def entries(path):
     root = root_path(path)
     result = []
-    for folder, dirs, files in os.walk(root, followlinks=False):
+    def walk_error(error):
+        raise error
+    for folder, dirs, files in os.walk(root, followlinks=False, onerror=walk_error):
         dirs[:] = sorted(d for d in dirs if not (Path(folder) / d).is_symlink()
                          and not getattr(Path(folder) / d, "is_junction", lambda: False)())
         for name in sorted(files):
@@ -55,6 +57,11 @@ def digest(file):
 
 def xml(file):
     return ET.fromstring(read_bytes(file))
+
+
+def document(file):
+    data = read_bytes(file)
+    return ET.fromstring(data), hashlib.sha256(data).hexdigest()
 
 
 def decode(data):
@@ -89,9 +96,9 @@ def inspect_xml(path):
     file = Path(path).expanduser().resolve(strict=True)
     if file.suffix.lower() not in XML_SUFFIXES:
         raise ValueError("Select .cell, .controller, .pjx, .pgx, .dtx or .xml")
-    tree = xml(file)
+    tree, sha256 = document(file)
     elements = list(tree.iter())
-    return {"path": str(file), "sha256": digest(file), "root": tree.tag,
+    return {"path": str(file), "sha256": sha256, "root": tree.tag,
             "attributes": tree.attrib, "element_count": len(elements),
             "elements": [{"tag": local_name(e.tag), "attributes": e.attrib}
                          for e in elements[:1000]],
@@ -107,7 +114,7 @@ def inspect_project(path):
     for file in selected:
         relative = file.relative_to(root).as_posix()
         try:
-            tree = xml(file)
+            tree, sha256 = document(file)
             refs = []
             for element in tree.iter():
                 for key in ("file", "path"):
@@ -125,7 +132,7 @@ def inspect_project(path):
                         findings.append({"file": relative, "code": "unsafe_reference", "reference": value})
                     refs.append(row)
             documents.append({"file": relative, "root": local_name(tree.tag),
-                              "attributes": tree.attrib, "sha256": digest(file), "references": refs})
+                              "attributes": tree.attrib, "sha256": sha256, "references": refs})
         except (ET.ParseError, DefusedXmlException, ValueError) as exc:
             findings.append({"file": relative, "code": "invalid_xml", "detail": str(exc)})
     return {"root": str(root), "documents": documents, "findings": findings,

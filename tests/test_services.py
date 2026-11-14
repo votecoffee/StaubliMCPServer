@@ -76,3 +76,10 @@ def test_cli_receipt_refuses_overwrite(tmp_path):
     assert process.returncode == 1
     assert json.loads(process.stdout)["error"]["code"] == "ReceiptWriteError"
     assert output.read_text() == "keep"
+
+
+@pytest.mark.parametrize("text", ['{"x":1,"x":2}', '{"x":NaN}', '{"x":Infinity}'])
+def test_strict_request_json(text):
+    from staubli_workbench.jsonio import loads
+    with pytest.raises(ValueError):
+        loads(text)

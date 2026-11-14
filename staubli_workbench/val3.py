@@ -1,14 +1,14 @@
 """Source inspection, deliberately not a VAL3 compiler."""
 import re
 from pathlib import Path
-from .files import xml, local_name, digest
+from .files import document, local_name
 
 
 def analyze(path):
     file = Path(path).expanduser().resolve(strict=True)
     if file.suffix.lower() not in {".pgx", ".dtx", ".pjx"}:
         raise ValueError("Select a VAL3 .pgx, .dtx or .pjx file")
-    tree = xml(file)
+    tree, sha256 = document(file)
     programs, data, references = [], [], []
     for element in tree.iter():
         tag = local_name(element.tag)
@@ -27,6 +27,6 @@ def analyze(path):
         for key in ("file", "path"):
             if key in element.attrib:
                 references.append(element.attrib[key])
-    return {"path": str(file), "sha256": digest(file), "programs": programs,
+    return {"path": str(file), "sha256": sha256, "programs": programs,
             "data": data, "references": references, "evidence": "saved-source",
             "analysis": "Lexical call candidates only; not compilation, reachability or motion validation"}
