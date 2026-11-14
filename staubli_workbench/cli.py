@@ -28,6 +28,15 @@ def main(argv=None):
         print(json.dumps({"schema_version": 1, "ok": operation is not None, "data": operation,
                           "error": None if operation else {"code": "unknown_operation", "message": "Use catalog"}}))
         return 0 if operation else 1
+    receipt = None
+    if options.output:
+        try:
+            # Reserve the receipt before any operation, especially desktop launch.
+            receipt = options.output.open("x", encoding="utf-8")
+        except OSError as exc:
+            print(json.dumps({"schema_version": 1, "operation": options.operation, "ok": False,
+                              "data": None, "error": {"code": "ReceiptWriteError", "message": str(exc)}}))
+            return 1
     try:
         if options.args_file:
             with options.args_file.open("rb") as stream:
@@ -39,10 +48,10 @@ def main(argv=None):
         result = {"schema_version": 1, "operation": options.operation, "ok": False,
                   "data": None, "error": {"code": type(exc).__name__, "message": str(exc)}}
     rendered = json.dumps(result, ensure_ascii=True)
-    if options.output:
+    if receipt:
         try:
-            with options.output.open("x", encoding="utf-8") as stream:
-                stream.write(rendered + "\n")
+            with receipt:
+                receipt.write(rendered + "\n")
         except OSError as exc:
             result = {"schema_version": 1, "operation": options.operation, "ok": False,
                       "data": None, "error": {"code": "ReceiptWriteError", "message": str(exc)}}

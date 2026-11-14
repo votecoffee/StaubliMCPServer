@@ -108,3 +108,14 @@ def test_launch_rejects_cell_directory_without_starting_process(tmp_path, monkey
         pytest.fail("Invalid target started a process")
     monkeypatch.setattr(srs.subprocess, "Popen", unexpected)
     assert not execute("srs.launch", {"executable": str(exe), "cell": str(cell)})["ok"]
+
+
+def test_receipt_conflict_prevents_operation(tmp_path, monkeypatch, capsys):
+    from staubli_workbench import cli
+    output = tmp_path / "exists.json"
+    output.write_text("preserve")
+    def unexpected(*args, **kwargs):
+        pytest.fail("Receipt conflict must prevent side effects")
+    monkeypatch.setattr(cli, "execute", unexpected)
+    assert cli.main(["run", "srs.launch", "--output", str(output)]) == 1
+    assert json.loads(capsys.readouterr().out)["error"]["code"] == "ReceiptWriteError"
