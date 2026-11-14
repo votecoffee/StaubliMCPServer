@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 from PySide6.QtCore import QSettings, QThread, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QListWidget, QSplitter, QFormLayout, QLineEdit, QPushButton, QFileDialog,
     QPlainTextEdit, QTreeWidget, QTreeWidgetItem, QTabWidget, QComboBox, QCheckBox,
@@ -25,11 +26,11 @@ class Worker(QThread):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, settings=None):
         super().__init__()
         self.setWindowTitle(f"Stäubli Workbench {__version__}")
         self.resize(1180, 780)
-        self.settings = QSettings("StaubliWorkbench", "Desktop")
+        self.settings = settings if settings is not None else QSettings("StaubliWorkbench", "Desktop")
         self.worker, self.last_result = None, None
         central = QWidget()
         layout = QVBoxLayout(central)
@@ -211,6 +212,8 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    if sys.platform == "win32":
+        app.setFont(QFont("Segoe UI", 10))
     window = MainWindow()
     window.show()
     return app.exec()

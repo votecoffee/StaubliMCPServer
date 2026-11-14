@@ -19,10 +19,12 @@ def discover():
 
 def launch(executable, cell):
     exe, source = Path(executable).resolve(strict=True), Path(cell).resolve(strict=True)
-    if exe.name.lower() != "staubliroboticssuite.exe" or source.suffix.lower() != ".cell":
+    if (not exe.is_file() or not source.is_file() or
+            exe.name.lower() != "staubliroboticssuite.exe" or source.suffix.lower() != ".cell"):
         raise ValueError("Select StaubliRoboticsSuite.exe and an existing .cell")
     if os.name != "nt":
         raise ValueError("SRS launch requires Windows")
-    process = subprocess.Popen([str(exe), str(source)], cwd=exe.parent)
+    process = subprocess.Popen([str(exe), str(source)], cwd=exe.parent,
+                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return {"pid": process.pid, "requested_cell": str(source), "evidence": "launch-request",
             "opened_verified": False}

@@ -2,14 +2,14 @@ import os
 import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6")
-from PySide6.QtCore import QEventLoop, QTimer
+from PySide6.QtCore import QEventLoop, QTimer, QSettings
 from PySide6.QtWidgets import QApplication
 from staubli_workbench.gui import MainWindow
 
 
-def test_worker_populates_result_and_releases_controls():
+def test_worker_populates_result_and_releases_controls(tmp_path):
     app = QApplication.instance() or QApplication([])
-    window = MainWindow()
+    window = MainWindow(QSettings(str(tmp_path / "gui.ini"), QSettings.Format.IniFormat))
     loop = QEventLoop()
     timer = QTimer()
     timer.setSingleShot(True)

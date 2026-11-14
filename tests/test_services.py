@@ -78,8 +78,33 @@ def test_cli_receipt_refuses_overwrite(tmp_path):
     assert output.read_text() == "keep"
 
 
-@pytest.mark.parametrize("text", ['{"x":1,"x":2}', '{"x":NaN}', '{"x":Infinity}'])
+@pytest.mark.parametrize("text", ['{"x":1,"x":2}', '{"x":NaN}', '{"x":Infinity}', '{"x":1e999}'])
 def test_strict_request_json(text):
     from staubli_workbench.jsonio import loads
     with pytest.raises(ValueError):
         loads(text)
+
+
+def test_directory_junction_is_not_traversed(tmp_path):
+    import os
+    if os.name != "nt":
+        pytest.skip("Windows junction check")
+    outside, root = tmp_path / "outside", tmp_path / "project"
+    outside.mkdir(); root.mkdir()
+    (outside / "private.xml").write_text("<private/>")
+    junction = root / "linked"
+    created = subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(outside)], capture_output=True)
+    if created.returncode:
+        pytest.skip("Junction creation unavailable")
+    assert files.inventory(root)["count"] == 0
+
+
+def test_launch_rejects_cell_directory_without_starting_process(tmp_path, monkeypatch):
+    from staubli_workbench import srs
+    exe, cell = tmp_path / "StaubliRoboticsSuite.exe", tmp_path / "example.cell"
+    exe.write_bytes(b"synthetic")
+    cell.mkdir()
+    def unexpected(*args, **kwargs):
+        pytest.fail("Invalid target started a process")
+    monkeypatch.setattr(srs.subprocess, "Popen", unexpected)
+    assert not execute("srs.launch", {"executable": str(exe), "cell": str(cell)})["ok"]

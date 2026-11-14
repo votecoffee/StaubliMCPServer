@@ -19,6 +19,11 @@ def read(resource, port, insecure_tls=False, timeout=5):
     deadline = time.monotonic() + timeout
     try:
         connection.request("GET", RESOURCES[resource], headers={"Accept": "application/json", "Connection": "close"})
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Simulator read deadline exceeded")
+        if connection.sock is not None:
+            connection.sock.settimeout(remaining)
         response = connection.getresponse()
         if response.status != 200:
             raise ValueError(f"Simulator returned HTTP {response.status}; redirects are not followed")

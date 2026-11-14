@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import stat
 from pathlib import Path, PureWindowsPath
 from defusedxml import ElementTree as ET
 from defusedxml.common import DefusedXmlException
@@ -31,16 +32,21 @@ def entries(path):
     def walk_error(error):
         raise error
     for folder, dirs, files in os.walk(root, followlinks=False, onerror=walk_error):
-        dirs[:] = sorted(d for d in dirs if not (Path(folder) / d).is_symlink()
-                         and not getattr(Path(folder) / d, "is_junction", lambda: False)())
+        dirs[:] = sorted(d for d in dirs if not is_link(Path(folder) / d))
         for name in sorted(files):
             file = Path(folder) / name
-            if file.is_symlink() or not file.resolve().is_relative_to(root):
+            if is_link(file) or not file.resolve().is_relative_to(root):
                 continue
             if len(result) >= MAX_FILES:
                 raise ValueError(f"Project exceeds {MAX_FILES} files; choose a smaller root")
             result.append(file)
     return root, sorted(result, key=lambda p: p.relative_to(root).as_posix())
+
+
+def is_link(path):
+    # lstat attributes also detect junctions on Python 3.11.
+    return path.is_symlink() or bool(getattr(path.lstat(), "st_file_attributes", 0) &
+                                   getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
 
 
 def read_bytes(file, limit=MAX_BYTES):

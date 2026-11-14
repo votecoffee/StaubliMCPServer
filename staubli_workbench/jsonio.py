@@ -1,5 +1,6 @@
 """Strict bounded request JSON for automation."""
 import json
+import math
 
 MAX_REQUEST = 1024 * 1024
 
@@ -16,4 +17,9 @@ def loads(text):
         return result
     def constant(value):
         raise ValueError("Nonfinite JSON number: " + value)
-    return json.loads(text, object_pairs_hook=pairs, parse_constant=constant)
+    def floating(value):
+        parsed = float(value)
+        if not math.isfinite(parsed):
+            raise ValueError("Nonfinite JSON number: " + value)
+        return parsed
+    return json.loads(text, object_pairs_hook=pairs, parse_constant=constant, parse_float=floating)
